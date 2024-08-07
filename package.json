@@ -1,0 +1,26 @@
+{
+  "name": "b24_clean",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "3.2.5"
+  },
+  "dependencies": {
+    "@devmehq/email-validator-js": "^1.0.19",
+    "dotenv": "^16.4.5",
+    "email-validator": "^2.0.4",
+    "install": "^0.13.0",
+    "libphonenumber-js": "^1.11.5",
+    "npm": "^10.8.2",
+    "string-similarity-js": "^2.1.4"
+  }
+}
