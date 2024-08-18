@@ -187,18 +187,23 @@ const sanitize = async (el) => {
   el.EMAIL = deduplicateArray(el.EMAIL, 'email');
   if (utils.isEmpty(el.EMAIL)) delete el.EMAIL;
 
-  if (el.LAST_NAME || el.NAME || el.SECOND_NAME || el.PHONE || el.EMAIL) return el;
-};
-
-(async () => {
-  const contactList = await getContacts();
-
-  for (const el of contactList) {
+  if (el.LAST_NAME || el.NAME || el.SECOND_NAME || el.PHONE || el.EMAIL) {
     const id = el.ID;
     delete el.ID;
     await updateContact(id, el);
     await utils.delay(350);
   }
+};
+
+(async () => {
+  const contactList = await getContacts();
+
+  /* for (const el of contactList) {
+    const id = el.ID;
+    delete el.ID;
+    await updateContact(id, el);
+    await utils.delay(350);
+  } */
 })();
 
 /* 
