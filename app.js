@@ -1,6 +1,7 @@
 const utils = require('./lib/utils');
 const parsePhoneNumber = require('libphonenumber-js');
 const emailValidator = require('email-validator');
+const nameDetector = require('russian-name-detector')();
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -33,17 +34,19 @@ const getContacts = async () => {
       }
 
       const res = await response.json();
-      await utils.delay(250);
+      await utils.delay(350);
       next = res.next;
       start += 50;
 
-      res.result.forEach((el) => {
-        result.push(el);
-      });
+      for (const el of res.result) {
+        const newel = await sanitize(el);
+        if (newel) result.push(newel);
+      }
+
       await utils.writeJsonData('contacts.json', result);
       console.log(`${start}/${next} [${res.total}]`);
     } catch (error) {
-      console.error('Error during patch request:', error.message);
+      console.error('Error during get request:', error.message);
     }
   }
   return result;
@@ -80,13 +83,13 @@ const updateContact = async (id, fields) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${await response.text()}`);
+      throw new Error(`Failed to post ${await response.text()}`);
     }
 
     const res = await response.json();
     return res.result;
   } catch (error) {
-    console.error('Error during patch request:', error.message);
+    console.error('Error during post request:', error.message);
   }
 };
 
@@ -99,26 +102,16 @@ function deduplicateArray(array, dedup_type) {
         const item_obj = {
           type: el.TYPE_ID,
           value: el.VALUE,
+          dedup_type: dedup_type,
         };
-
-        if (seenValues.has(item_obj)) {
-          el.VALUE = '';
-        } else {
-          seenValues.add(item_obj);
-        }
 
         if (el.VALUE && dedup_type === 'phone') {
           const last10digits = el.VALUE.trim().replace(/\D/g, '').substr(-10);
           const phone = parsePhoneNumber(last10digits, 'RU');
           if (phone && phone.isValid()) {
-            if (el.VALUE !== phone.number) {
-              el.VALUE = phone.number;
-              el.VALUE_TYPE = 'WORK';
-            } else {
-              return null;
-            }
+            el.VALUE = phone.number;
+            el.VALUE_TYPE = 'WORK';
           } else {
-            // console.log(`{{${phone?.number}}}`);
             el.VALUE = '';
           }
         }
@@ -127,10 +120,13 @@ function deduplicateArray(array, dedup_type) {
           const email = emailValidator.validate(el.VALUE);
           if (!email) {
             el.VALUE = '';
-            // console.log(`{{${m_item.item_obj}}}`);
-          } else {
-            return null;
           }
+        }
+
+        if (seenValues.has(item_obj)) {
+          el.VALUE = '';
+        } else {
+          seenValues.add(item_obj);
         }
 
         return el;
@@ -141,44 +137,50 @@ function deduplicateArray(array, dedup_type) {
     .filter(Boolean);
 }
 
-(async () => {
-  let contactList;
+const sanitize = async (el) => {
+  const fullname = String(
+    (el.LAST_NAME ? el.LAST_NAME : '') +
+      (el.NAME ? ' ' + el.NAME : '') +
+      (el.SECOND_NAME ? ' ' + el.SECOND_NAME : ''),
+  );
 
-  /* if (await utils.shouldFetchData('contacts.json')) {
-    contactList = await getContacts();
+  if (fullname) {
+    try {
+      let data = await nameDetector(fullname);
+      el.LAST_NAME = data.surname;
+      el.NAME = data.name;
+      el.SECOND_NAME = data.middlename;
+    } catch (e) {
+      console.log(fullname, e);
+    }
   }
 
-  contactList = await utils.readDataJson('contacts.json'); */
+  /* el.LAST_NAME = utils.trimAndSanitize(el.LAST_NAME);
+  if (!el.LAST_NAME) delete el.LAST_NAME;
 
-  contactList = await getContacts();
+  el.NAME = utils.trimAndSanitize(el.NAME);
+  if (!el.NAME) delete el.NAME;
 
-  const sanContactList = contactList
-    .map((el) => {
-      el.LAST_NAME = utils.trimAndSanitize(el.LAST_NAME);
-      if (!el.LAST_NAME) delete el.LAST_NAME;
+  el.SECOND_NAME = utils.trimAndSanitize(el.SECOND_NAME);
+  if (!el.SECOND_NAME) delete el.SECOND_NAME; */
 
-      el.NAME = utils.trimAndSanitize(el.NAME);
-      if (!el.NAME) delete el.NAME;
+  el.PHONE = deduplicateArray(el.PHONE, 'phone');
+  if (!el.PHONE || utils.isArrayEmpty(el.PHONE)) delete el.PHONE;
 
-      el.SECOND_NAME = utils.trimAndSanitize(el.SECOND_NAME);
-      if (!el.SECOND_NAME) delete el.SECOND_NAME;
+  el.EMAIL = deduplicateArray(el.EMAIL, 'email');
+  if (utils.isEmpty(el.EMAIL)) delete el.EMAIL;
 
-      el.PHONE = deduplicateArray(el.PHONE, 'phone');
-      if (!el.PHONE || utils.isArrayEmpty(el.PHONE)) delete el.PHONE;
+  if (el.LAST_NAME || el.NAME || el.SECOND_NAME || el.PHONE || el.EMAIL) return el;
+};
 
-      el.EMAIL = deduplicateArray(el.EMAIL, 'email');
-      if (utils.isEmpty(el.EMAIL)) delete el.EMAIL;
+(async () => {
+  const contactList = await getContacts();
 
-      if (Object.keys(el).length > 1) return el;
-    })
-    .filter(Boolean);
-  await utils.writeJsonData('contacts_sanitized.json', sanContactList);
-
-  for (const el of sanContactList) {
+  for (const el of contactList) {
     const id = el.ID;
     delete el.ID;
     await updateContact(id, el);
-    await utils.delay(250);
+    await utils.delay(350);
   }
 })();
 

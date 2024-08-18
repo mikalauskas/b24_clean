@@ -21,6 +21,7 @@
     "install": "^0.13.0",
     "libphonenumber-js": "^1.11.5",
     "npm": "^10.8.2",
+    "russian-name-detector": "^1.0.3",
     "string-similarity-js": "^2.1.4"
   }
 }
