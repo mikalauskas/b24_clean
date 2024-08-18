@@ -147,10 +147,23 @@ const sanitize = async (el) => {
   if (fullname) {
     try {
       let data = await nameDetector(fullname);
-      el.LAST_NAME = el.LAST_NAME !== data.surname ? data.surname : delete el.LAST_NAME;
-      el.NAME = el.NAME !== data.name ? data.name : delete el.NAME;
-      el.SECOND_NAME =
-        el.SECOND_NAME !== data.middlename ? data.middlename : delete el.SECOND_NAME;
+      if (el.LAST_NAME !== data.surname) {
+        el.LAST_NAME = data.surname;
+      } else {
+        delete el.LAST_NAME;
+      }
+
+      if (el.NAME !== data.name) {
+        el.NAME = data.name;
+      } else {
+        delete el.NAME;
+      }
+
+      if (el.SECOND_NAME !== data.middlename) {
+        el.SECOND_NAME = data.middlename;
+      } else {
+        delete el.SECOND_NAME;
+      }
     } catch (e) {
       delete el.LAST_NAME;
       delete el.NAME;
