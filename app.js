@@ -172,14 +172,11 @@ const sanitize = async (el) => {
     }
   }
 
-  /* el.LAST_NAME = utils.trimAndSanitize(el.LAST_NAME);
   if (!el.LAST_NAME) delete el.LAST_NAME;
 
-  el.NAME = utils.trimAndSanitize(el.NAME);
   if (!el.NAME) delete el.NAME;
 
-  el.SECOND_NAME = utils.trimAndSanitize(el.SECOND_NAME);
-  if (!el.SECOND_NAME) delete el.SECOND_NAME; */
+  if (!el.SECOND_NAME) delete el.SECOND_NAME;
 
   el.PHONE = deduplicateArray(el.PHONE, 'phone');
   if (!el.PHONE || utils.isArrayEmpty(el.PHONE)) delete el.PHONE;
