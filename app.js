@@ -23,7 +23,8 @@ const getContacts = async () => {
           '&select[]=NAME' +
           '&select[]=SECOND_NAME' +
           '&select[]=PHONE' +
-          '&select[]=EMAIL',
+          '&select[]=EMAIL' +
+          '&order[ID]=DESC',
         {
           method: 'GET',
         },
