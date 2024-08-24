@@ -96,49 +96,92 @@ const updateContact = async (id, fields) => {
 
 function deduplicateArray(array, dedup_type) {
   if (utils.isEmpty(array)) return null;
-  const seenValues = new Set();
-  return array
-    .map((el) => {
-      try {
-        const item_obj = {
-          type: el.TYPE_ID,
-          value: el.VALUE,
-          dedup_type: dedup_type,
-        };
-
-        if (el.VALUE && dedup_type === 'phone') {
-          const last10digits = el.VALUE.trim().replace(/\D/g, '').substr(-10);
-          const phone = parsePhoneNumber(last10digits, 'RU');
-          if (phone && phone.isValid()) {
-            el.VALUE = phone.number;
-            el.VALUE_TYPE = 'WORK';
-          } else {
-            el.VALUE = '';
-          }
+  const seenValues = [];
+  return array.map((el) => {
+    try {
+      if (el.VALUE && dedup_type === 'phone') {
+        const last10digits = el.VALUE.trim().replace(/\D/g, '').slice(-10);
+        const phone = parsePhoneNumber(last10digits, 'RU');
+        if (phone && phone.isValid()) {
+          el.VALUE = phone.number;
+          el.VALUE_TYPE = 'WORK';
+        } else {
+          el.VALUE = '';
         }
+      }
 
-        if (el.VALUE && dedup_type === 'email') {
-          const email = emailValidator.validate(el.VALUE);
-          if (!email) {
-            el.VALUE = '';
-          }
-        }
-
-        if (seenValues.has(item_obj)) {
+      if (el.VALUE && dedup_type === 'email') {
+        const email = emailValidator.validate(el.VALUE);
+        if (!email) {
           el.VALUE = '';
         } else {
-          seenValues.add(item_obj);
+          el.VALUE_TYPE = 'WORK';
         }
-
-        return el;
-      } catch (e) {
-        console.error(e);
       }
-    })
-    .filter(Boolean);
+
+      if (seenValues.includes(el.VALUE)) {
+        console.log('Duplicate found:', el.VALUE);
+        el.VALUE = '';
+      } else {
+        seenValues.push(el.VALUE);
+      }
+
+      return el;
+    } catch (e) {
+      console.error('Error processing element:', el, e);
+    }
+  });
+}
+
+function compareContactInfo(obj1, obj2) {
+  // Helper function to compare two arrays of objects
+  function compareArrays(arr1, arr2) {
+    // Check if both arrays are undefined, null, or empty
+    if (!arr1 && !arr2) return true;
+    if ((!arr1 && arr2) || (arr1 && !arr2)) return false; // One exists and the other doesn't
+    if (arr1.length !== arr2.length) return false; // Check if lengths are equal
+
+    // Sort arrays by VALUE or another property for consistent comparison
+    arr1 = arr1.sort((a, b) => (a.VALUE > b.VALUE ? 1 : -1));
+    arr2 = arr2.sort((a, b) => (a.VALUE > b.VALUE ? 1 : -1));
+
+    // Compare each object in the arrays
+    for (let i = 0; i < arr1.length; i++) {
+      const item1 = arr1[i];
+      const item2 = arr2[i];
+
+      if (
+        item1.ID !== item2.ID ||
+        item1.VALUE_TYPE !== item2.VALUE_TYPE ||
+        item1.VALUE !== item2.VALUE ||
+        item1.TYPE_ID !== item2.TYPE_ID
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // Normalize PHONE and EMAIL properties to empty arrays if they are undefined or null
+  const phones1 = obj1.PHONE || [];
+  const phones2 = obj2.PHONE || [];
+  const emails1 = obj1.EMAIL || [];
+  const emails2 = obj2.EMAIL || [];
+
+  // Compare PHONE arrays
+  const phonesEqual = compareArrays(phones1, phones2);
+
+  // Compare EMAIL arrays
+  const emailsEqual = compareArrays(emails1, emails2);
+
+  // Return true if both PHONE and EMAIL arrays are equal
+  return phonesEqual && emailsEqual;
 }
 
 const sanitize = async (el) => {
+  const oldEl = el;
+
   const fullname = String(
     (el.LAST_NAME ? el.LAST_NAME : '') +
       (el.NAME ? ' ' + el.NAME : '') +
@@ -180,41 +223,23 @@ const sanitize = async (el) => {
   if (!el.SECOND_NAME) delete el.SECOND_NAME;
 
   el.PHONE = deduplicateArray(el.PHONE, 'phone');
-  if (!el.PHONE || utils.isArrayEmpty(el.PHONE)) delete el.PHONE;
+  //if (!el.PHONE || utils.isArrayEmpty(el.PHONE)) delete el.PHONE;
 
   el.EMAIL = deduplicateArray(el.EMAIL, 'email');
-  if (utils.isEmpty(el.EMAIL)) delete el.EMAIL;
+  //if (utils.isEmpty(el.EMAIL)) delete el.EMAIL;
 
-  if (el.LAST_NAME || el.NAME || el.SECOND_NAME || el.PHONE || el.EMAIL) {
+  const newEl = el;
+
+  if (!compareContactInfo(oldEl, newEl)) {
+    console.log('old el', oldEl);
+    console.log('new el', newEl);
     const id = el.ID;
     delete el.ID;
-    await updateContact(id, el);
-    await utils.delay(350);
+    //await updateContact(id, el);
+    //await utils.delay(350);
   }
 };
 
 (async () => {
-  const contactList = await getContacts();
-
-  /* for (const el of contactList) {
-    const id = el.ID;
-    delete el.ID;
-    await updateContact(id, el);
-    await utils.delay(350);
-  } */
+  await getContacts();
 })();
-
-/* 
-
-"crm.contact.update", {
-  id: 46467,
-  fields: {
-    "LAST_NAME": utils.trimAndSanitize(el.LAST_NAME),
-    "EMAIL": [{
-        "ID": 83153,
-        "VALUE": ""
-    }]
-  }
-}, 
-
-*/
